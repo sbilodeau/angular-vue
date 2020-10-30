@@ -1,0 +1,155 @@
+<!doctype html>
+<html  ng-app="app" >
+  <head>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.0/angular.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
+  </head>
+  <body >
+    <div>
+        <div ng-controller="MyNgController">
+            <h1>AngularJS</h1>
+            <label>firstName:</label>
+            <input type="text" ng-model="firstName" placeholder="Enter a name here">
+            <label>lastName:</label>
+            <input type="text" ng-model="lastName" placeholder="Enter a name here">
+            <button ng-click="reset()">Reset</button>
+            <hr>
+            <h1>Vuejs</h1>
+            <full-name ng-vue :first-name="firstName" :last-name="lastName" status="non-working" @click="reset()"></full-name>
+            <div ng-vue v-text="firstName"  status="working" @click="reset()"></div>
+
+           
+            <hr>
+        </div>
+    </div>
+
+    <script>
+        var FullName = Vue.extend({
+            props: [
+                'firstName',
+                'lastName'
+            ],
+            template: '<div> your vue name (from angular) is {{ firstName }} {{lastName}}. </div>'
+        })
+
+        var app = angular.module("app",[])
+
+        app.controller('MyNgController', function($scope){
+            $scope.$vueComponents = {
+                fullName : FullName
+            }
+
+            $scope.firstName = "Stephane";
+            $scope.lastName  = "Bilodeau";
+            $scope.reset = function() {
+                $scope.firstName = "";
+                $scope.lastName  = ""
+            }
+        });
+        
+        app.directive('ngVue', function() {
+            return {
+                restrict: 'A',
+                link: function(scope, element, attrs) {
+
+                    const ngProperties = loadWrappedProperties(attrs)
+                    const ngDelegates  = loadWrappedDelegates (attrs)
+
+                    // test declarations
+
+                    ngProperties.forEach(prop => {
+                        if(scope[prop]===undefined) {
+                            throw Error(`property "${prop}" is not defined on parent scope`);
+                        }
+                    });
+
+                    ngDelegates.forEach(delegate => {
+                        if(scope[delegate]===undefined) {
+                            throw Error(`function "${delegate}" is not defined on parent scope`);
+                        }
+                    });
+
+                    const vueData = ngProperties.reduce((data, prop)=>{ 
+                        data[prop] = scope[prop]; 
+                        return data 
+                    }, {});
+
+                    const vueMethods = ngDelegates.reduce((methods, delegate)=>{ 
+                        methods[delegate] = ()=>scope.$apply(()=>scope[delegate]()); 
+                        return methods 
+                    }, {});
+
+                    var vm = new Vue({
+                        components : scope.$vueComponents,
+                        data: vueData,
+                        methods : vueMethods
+                    }).$mount(element[0]);
+
+                    // Parent => child binding
+                    ngProperties.forEach(prop => {
+                        scope.$watch(prop, function(value) { 
+                            vm[prop]=value; 
+                        });
+                    });
+                }
+            };
+
+            function loadWrappedProperties(attrs) {
+
+                const ngVueDeclaredRe = /^[a-z\$_][a-z0-9\$_]*$/i;
+                const ngProperties    = attrs.ngVue.split(',').map(o=>o.trim()).filter(o=> ngVueDeclaredRe.test(o) );
+
+                // autodetect simple binding on props detect 
+
+                const vDirectivesRe = /^(?:v-model|v-html|v-text|v-show|v-class|v-attr|v-style|v-if)(?:\.[a-z0-9]+)*$/i;
+                const vBindRe       = /^(?:v-bind)?:[a-z\-]+(\.[a-z]+)*$/i;
+                const vBindValueRe  = ngVueDeclaredRe;
+
+                for(var key in attrs.$attr) {
+                    const name  = attrs.$attr[key];
+                    const value = attrs[key];
+
+                    const validName =  vBindRe      .test(name)
+                                    || vDirectivesRe.test(name);
+
+                    if(validName && vBindValueRe.test(value)) {
+                        ngProperties.push(value);
+                    }
+                }
+
+                return ngProperties;
+            }
+
+            function loadWrappedDelegates(attrs) {
+
+                const ngVueDeclaredRe = /^&([a-z\$_][a-z0-9\$_]*)$/i;
+                const ngDelegates     = attrs.ngVue
+                    .split(',')
+                    .map(o=>o.trim())
+                    .filter(o=>ngVueDeclaredRe.test(o))
+                    .map(o=>o.replace(ngVueDeclaredRe,"$1"));
+
+                // autodetect simple delegate call with empty ()
+                // eg: call_function()
+
+                const vOnRe         = /^(?:v-on:|@)[a-z\-]+(\.[a-z0-9]+)*/i;
+                const vOnDelegateRe = /^([a-z_$][a-z0-9_$]*)\(\)$/i;
+
+                for(var key in attrs.$attr) {
+                    const name  = attrs.$attr[key];
+                    const value = attrs[key];
+
+                    const validName = vOnRe.test(name)
+
+                    if(validName && vOnDelegateRe.test(value)) {
+                        ngDelegates.push(value.replace(vOnDelegateRe, "$1"));
+                    }
+                }
+
+                return ngDelegates;
+            }
+        });
+
+    </script>
+  </body>
+</html>
