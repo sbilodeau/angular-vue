@@ -62,10 +62,10 @@
         app.directive('ngVue', function() {
             return {
                 restrict: 'A',
-                priority: 1001,//1 more than ngNonBindable
-                terminal: true,//any directive <= 1000 will be ignored
+                terminal: true,//any directive with lower priority will be ignored
+                priority: 1001,// 1 more than ngNonBindable => disable angialr interpolation!
                 link: function(scope, element, attrs) {
-return;
+
                     const angularDelegates    = loadAngularDelegates   (attrs)
                     const angularToVueMapping = loadAngularToVueMapping(attrs)
                     const vueToAngularMapping = loadVueToAngularMapping(attrs)
