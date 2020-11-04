@@ -9,15 +9,15 @@
         <div ng-controller="MyNgController">
             <h1>AngularJS</h1>
             <label>firstName:</label>
-            <input type="text" ng-model="firstName" placeholder="Enter a name here">
+            <input type="text" ng-model="contact.firstName" placeholder="Enter a name here">
             <br>
             <label>lastName:</label>
-            <input type="text" ng-model="lastName" placeholder="Enter a name here"><br>
+            <input type="text" ng-model="contact.lastName" placeholder="Enter a name here"><br>
             <button ng-click="reset()">Reset from angular</button>
             <hr>
             <h1>Vuejs</h1>
-            <full-name ng-vue :first-name.sync="firstName" :last-name.sync="lastName" @alert="alert"></full-name>
-            <button ng-vue="firstName" @click="reset()"> Reset {{firstName}}</button>
+            <full-name vue vue-expose="contact" :first-name.sync="contact.firstName" :last-name="contact.lastName" @alert="alert"></full-name>
+            <button vue vue-expose="contact" @click="reset()"> Reset {{contact.firstName}}</button>
 
            
             <hr>
@@ -35,8 +35,8 @@
                 ln: { get() { return this.lastName }, set(v) { this.$emit("update:lastName", v) }  }
             },
             template: `<div> 
-                <label>firstName:</label> <input v-model="fn"><br>
-                <label>firstName:</label> <input v-model="ln"><br>
+                <label>firstName:</label> <input v-model="fn"> {{fn}}<br>
+                <label>firstName:</label> <input v-model="ln"> {{ln}}<br>
                 <button @click="$emit('alert', firstName + ' ' + lastName)">Message me</button> </div>`
         })
 
@@ -47,6 +47,10 @@
                 fullName : FullName
             }
 
+            $scope.contact = {
+                firstName : "Stephane",
+                lastName  : "Bilodeau"
+            }
             $scope.firstName = "Stephane";
             $scope.lastName  = "Bilodeau";
             $scope.reset = function() {
@@ -59,7 +63,7 @@
             }
         });
         
-        app.directive('ngVue', function() {
+        app.directive('vue', function() {
             return {
                 restrict: 'A',
                 terminal: true,//any directive with lower priority will be ignored
@@ -131,7 +135,7 @@
             function loadAngularToVueMapping(attrs) {
 
                 const ngVueDeclaredRe = /^[a-z\$_][a-z0-9\$_]*$/i;
-                const ngProperties    = attrs.ngVue.split(',').map(o=>o.trim()).filter(o=> ngVueDeclaredRe.test(o) );
+                const ngProperties    = (attrs.vueExpose??"").split(',').map(o=>o.trim()).filter(o=> ngVueDeclaredRe.test(o) );
 
                 // autodetect simple binding on props detect 
 
@@ -162,7 +166,7 @@
 
                 const vModel      = /^(?:v-model)$/i;
                 const vBind       = /^(?:v-bind)?:([a-z\-]+)\.sync*$/i;
-                const vBindValue  = /^[a-z\$_][a-z0-9\$_]*$/i;
+                const vBindValue  = /^[a-z\$_][a-z0-9\$_]*(\.[a-z\$_][a-z0-9\$_]*)*$/i;
 
                 const mapping = {};
 
@@ -198,7 +202,7 @@
             function loadAngularDelegates(attrs) {
 
                 const ngVueDeclaredRe = /^&([a-z\$_][a-z0-9\$_]*)$/i;
-                const ngDelegates     = attrs.ngVue
+                const ngDelegates     = (attrs.vueExpose??"")
                     .split(',')
                     .map(o=>o.trim())
                     .filter(o=>ngVueDeclaredRe.test(o))
