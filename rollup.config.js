@@ -1,31 +1,31 @@
 // rollup.config.js (building more than one bundle)
-import {terser} from 'rollup-plugin-terser';
+import { terser } from 'rollup-plugin-terser';
 import babel from '@rollup/plugin-babel';
 
 const globals = {
-  lodash: '_',
+  lodash : '_',
   angular: 'angular',
-  Vue: 'Vue'
+  Vue    : 'Vue',
 };
 
 const outputOptions = {
-  format: 'umd',
+  format   : 'umd',
   sourcemap: true,
-  globals
-}
+  globals,
+};
 
 export default [{
-  input: './src/index.js',
+  input : './src/index.js',
   output: [{
     ...outputOptions,
     file: 'dist/angular-vue.js',
-  },{
+  }, {
     ...outputOptions,
-    file: 'dist/angular-vue.min.js',
-    plugins: [terser()]
+    file   : 'dist/angular-vue.min.js',
+    plugins: [ terser() ],
   }],
-  external: [ ...Object.keys(globals) ] ,
-  plugins: [
-    babel({ babelHelpers: 'bundled' })
-  ]
+  external: [ ...Object.keys(globals) ],
+  plugins : [
+    babel({ babelHelpers: 'bundled' }),
+  ],
 }];

@@ -1,56 +1,51 @@
 export default {
-    parent,
-    parents,
-    leaf,
-    root,
-    isRoot
+  parent,
+  parents,
+  leaf,
+  root,
+  isRoot,
 };
 
 function parent(path) {
-    const parts = split(path)
+  const parts = split(path);
 
-    parts.pop();
+  parts.pop();
 
-    return combine(parts)
+  return combine(parts);
 }
 
 function parents(path) {
-    const parentPaths = [];
+  const parentPaths = [];
 
-    path = parent(path)
+  let parentPath = parent(path);
 
-    while(path) {
-        parentPaths.push(path);
-        path = parent(path)
-    }
+  while (parentPath) {
+    parentPaths.push(parentPath);
+    parentPath = parent(parentPath);
+  }
 
-    return parentPaths;
+  return parentPaths;
 }
 
 function leaf(path) {
-    const parts = split(path);
-    return parts.pop();
+  const parts = split(path);
+  return parts.pop();
 }
 
 function root(path) {
-    return split(path)[0];
+  return split(path)[0];
 }
 
 function isRoot(path) {
-    return split(path).length==1;
+  return split(path).length === 1;
 }
 
 function split(path) {
+  if (!path) throw new Error(`Invalid path ${path}`);
 
-    if(!path) throw new Error(`Invalid path ${path}`);
-
-    return path.split('.');
+  return path.split('.');
 }
 
 function combine(parts) {
-    return parts.join('.');
+  return parts.join('.');
 }
-
-
-
-
