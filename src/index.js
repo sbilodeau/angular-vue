@@ -1,4 +1,6 @@
-import vueDirectiveDefinition from "./directives/vue";
+import angular from "angular";
+import vueDirective from "./directives/vue";
 
-angular.module("angularVue",[])
-       .directive("vue", vueDirectiveDefinition);
+var ngModule = angular.module("angularVue",[]);
+
+vueDirective.register(ngModule);

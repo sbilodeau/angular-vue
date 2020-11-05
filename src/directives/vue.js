@@ -1,6 +1,10 @@
 import _ from "lodash"
+import Vue from "Vue"
+import paths from "../libs/paths"
 
-export default [function() {
+export default { register };
+
+function register(ngModule) { ngModule.directive('vue', [function() {
     return {
         restrict: 'A',
         terminal: true,//any directive with lower priority will be ignored
@@ -16,7 +20,7 @@ export default [function() {
             ngProperties.forEach((prop) => testDefined(scope, prop));
             ngDelegates .forEach((prop) => testDefined(scope, prop));
 
-            const vueData = ngProperties.filter(isRootPath).reduce((data, ngProp) => {
+            const vueData = ngProperties.filter(paths.isRoot).reduce((data, ngProp) => {
                 const vueProp = ngProp;
                 data[vueProp] = scope.$eval(ngProp); // set initial value
                 return data
@@ -51,9 +55,9 @@ export default [function() {
                     let target = vm;
                     let prop   = vueProp;
 
-                    if(!isRootPath(prop)) {
-                        target = _.get(vm, parentPath(prop));
-                        prop   = leafPath(prop);
+                    if(!paths.isRoot(prop)) {
+                        target = _.get(vm, paths.parent(prop));
+                        prop   = paths.leaf(prop);
                     }
 
                     Vue.set(target, prop, value); 
@@ -77,7 +81,7 @@ export default [function() {
         const vBind       = /^(?:v-bind)?:[a-z\-]+(\.[a-z]+)*$/i;
         const vBindValue  = /^[a-z\$_][a-z0-9\$_]*(\.[a-z\$_][a-z0-9\$_]*)*$/i;
 
-        const properties = (attrs.vueExpose??"").split(',').map(o => o.trim()).filter(o => vBindValue.test(o) );
+        let properties = (attrs.vueExpose??"").split(',').map(o => o.trim()).filter(o => vBindValue.test(o) );
 
         // autodetect simple binding on props detect 
 
@@ -96,19 +100,11 @@ export default [function() {
 
         // Add parent properties
 
-        var i = properties.length;
+        properties.forEach(prop => {
+            properties = _.union(properties, paths.parents(prop));
+        })
 
-        while(i--) {
-
-            var path = parentPath(properties[i])
-
-            while(path) {
-                properties.push(path);
-                path = parentPath(path)
-            }
-        }
-
-        return _.uniq(properties);
+        return _(properties).uniq().sort();
     }
 
     function loadSyncedPropertiesMapping(attrs) {
@@ -179,21 +175,6 @@ export default [function() {
         return ngDelegates;
     }
 
-    function parentPath(path) {
-        const parts = path.split('.');
-        parts.pop();
-        return parts.join('.');
-    }
-
-    function leafPath(path) {
-        const parts = path.split('.');
-        return parts.pop();
-    }
-
-    function isRootPath(path) {
-        const parts = path.split('.');
-        return parts.length==1;
-    }
 
     function remapAttributes(attrs) {
 
@@ -217,4 +198,4 @@ export default [function() {
         }
     }
 
-}]
+}])};

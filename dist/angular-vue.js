@@ -1,12 +1,14 @@
 (function (global, factory) {
-  typeof exports === 'object' && typeof module !== 'undefined' ? factory(require('lodash')) :
-  typeof define === 'function' && define.amd ? define(['lodash'], factory) :
-  (global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory(global._));
-}(this, (function (_) { 'use strict';
+  typeof exports === 'object' && typeof module !== 'undefined' ? factory(require('angular'), require('lodash'), require('Vue')) :
+  typeof define === 'function' && define.amd ? define(['angular', 'lodash', 'Vue'], factory) :
+  (global = typeof globalThis !== 'undefined' ? globalThis : global || self, factory(global.angular, global._, global.Vue));
+}(this, (function (angular, _, Vue) { 'use strict';
 
   function _interopDefaultLegacy (e) { return e && typeof e === 'object' && 'default' in e ? e : { 'default': e }; }
 
+  var angular__default = /*#__PURE__*/_interopDefaultLegacy(angular);
   var ___default = /*#__PURE__*/_interopDefaultLegacy(_);
+  var Vue__default = /*#__PURE__*/_interopDefaultLegacy(Vue);
 
   function _unsupportedIterableToArray(o, minLen) {
     if (!o) return;
@@ -82,235 +84,266 @@
     };
   }
 
-  var vueDirectiveDefinition = [function () {
-    return {
-      restrict: 'A',
-      terminal: true,
-      //any directive with lower priority will be ignored
-      priority: 1001,
-      // 1 more than ngNonBindable => disable angular interpolation!
-      link: function link(scope, element, attrs) {
-        var ngDelegates = loadExposedDelegates(attrs);
-        var ngProperties = loadExposedProperties(attrs);
-        var syncedPropertiesMapping = loadSyncedPropertiesMapping(attrs); // test declarations
+  var paths = {
+    parent: parent,
+    parents: parents,
+    leaf: leaf,
+    root: root,
+    isRoot: isRoot
+  };
 
-        ngProperties.forEach(function (prop) {
-          return testDefined(scope, prop);
-        });
-        ngDelegates.forEach(function (prop) {
-          return testDefined(scope, prop);
-        });
-        var vueData = ngProperties.filter(isRootPath).reduce(function (data, ngProp) {
-          var vueProp = ngProp;
-          data[vueProp] = scope.$eval(ngProp); // set initial value
+  function parent(path) {
+    var parts = split(path);
+    parts.pop();
+    return combine(parts);
+  }
 
-          return data;
-        }, {});
-        var vueMethods = ngDelegates.reduce(function (methods, ngDelegate) {
-          methods[ngDelegate] = function () {
-            var _arguments = arguments;
-            console.log("Calling ng delegate: ".concat(ngDelegate, "()"));
-            scope.$apply(function () {
-              return scope.$eval(ngDelegate).apply(scope, _arguments);
-            });
-          };
+  function parents(path) {
+    var parentPaths = [];
+    path = parent(path);
 
-          return methods;
-        }, {}); //Create root component;
+    while (path) {
+      parentPaths.push(path);
+      path = parent(path);
+    }
 
-        var vm = new Vue({
-          components: scope.$vueComponents,
-          data: vueData,
-          methods: vueMethods
-        }).$mount(element[0]); // Watch changes 
+    return parentPaths;
+  }
 
-        var _iterator = _createForOfIteratorHelper(ngProperties),
-            _step;
+  function leaf(path) {
+    var parts = split(path);
+    return parts.pop();
+  }
 
-        try {
-          var _loop2 = function _loop2() {
-            var prop = _step.value;
-            var ngProp = prop;
-            var vueProp = prop;
-            scope.$watch(ngProp, function (value) {
-              console.log("ng(".concat(ngProp, ") => vue(").concat(vueProp, ") ="), value);
-              var target = vm;
-              var prop = vueProp;
+  function root(path) {
+    return split(path)[0];
+  }
 
-              if (!isRootPath(prop)) {
-                target = ___default['default'].get(vm, parentPath(prop));
-                prop = leafPath(prop);
-              }
+  function isRoot(path) {
+    return split(path).length == 1;
+  }
 
-              Vue.set(target, prop, value);
-            });
-          };
+  function split(path) {
+    if (!path) throw new Error("Invalid path ".concat(path));
+    return path.split('.');
+  }
 
-          for (_iterator.s(); !(_step = _iterator.n()).done;) {
-            _loop2();
-          }
-        } catch (err) {
-          _iterator.e(err);
-        } finally {
-          _iterator.f();
-        }
+  function combine(parts) {
+    return parts.join('.');
+  }
 
-        var _loop = function _loop(vueProp) {
-          // .sync
-          var ngProp = syncedPropertiesMapping[vueProp];
-          vm.$children.forEach(function (c) {
-            return c.$on("update:".concat(vueProp), function (value) {
-              console.log("vue(".concat(vueProp, ") => ng(").concat(ngProp, ") ="), value);
+  var vueDirective = {
+    register: register
+  };
+
+  function register(ngModule) {
+    ngModule.directive('vue', [function () {
+      return {
+        restrict: 'A',
+        terminal: true,
+        //any directive with lower priority will be ignored
+        priority: 1001,
+        // 1 more than ngNonBindable => disable angular interpolation!
+        link: function link(scope, element, attrs) {
+          var ngDelegates = loadExposedDelegates(attrs);
+          var ngProperties = loadExposedProperties(attrs);
+          var syncedPropertiesMapping = loadSyncedPropertiesMapping(attrs); // test declarations
+
+          ngProperties.forEach(function (prop) {
+            return testDefined(scope, prop);
+          });
+          ngDelegates.forEach(function (prop) {
+            return testDefined(scope, prop);
+          });
+          var vueData = ngProperties.filter(paths.isRoot).reduce(function (data, ngProp) {
+            var vueProp = ngProp;
+            data[vueProp] = scope.$eval(ngProp); // set initial value
+
+            return data;
+          }, {});
+          var vueMethods = ngDelegates.reduce(function (methods, ngDelegate) {
+            methods[ngDelegate] = function () {
+              var _arguments = arguments;
+              console.log("Calling ng delegate: ".concat(ngDelegate, "()"));
               scope.$apply(function () {
-                return ___default['default'].set(scope, ngProp, value);
+                return scope.$eval(ngDelegate).apply(scope, _arguments);
+              });
+            };
+
+            return methods;
+          }, {}); //Create root component;
+
+          var vm = new Vue__default['default']({
+            components: scope.$vueComponents,
+            data: vueData,
+            methods: vueMethods
+          }).$mount(element[0]); // Watch changes 
+
+          var _iterator = _createForOfIteratorHelper(ngProperties),
+              _step;
+
+          try {
+            var _loop2 = function _loop2() {
+              var prop = _step.value;
+              var ngProp = prop;
+              var vueProp = prop;
+              scope.$watch(ngProp, function (value) {
+                console.log("ng(".concat(ngProp, ") => vue(").concat(vueProp, ") ="), value);
+                var target = vm;
+                var prop = vueProp;
+
+                if (!paths.isRoot(prop)) {
+                  target = ___default['default'].get(vm, paths.parent(prop));
+                  prop = paths.leaf(prop);
+                }
+
+                Vue__default['default'].set(target, prop, value);
+              });
+            };
+
+            for (_iterator.s(); !(_step = _iterator.n()).done;) {
+              _loop2();
+            }
+          } catch (err) {
+            _iterator.e(err);
+          } finally {
+            _iterator.f();
+          }
+
+          var _loop = function _loop(vueProp) {
+            // .sync
+            var ngProp = syncedPropertiesMapping[vueProp];
+            vm.$children.forEach(function (c) {
+              return c.$on("update:".concat(vueProp), function (value) {
+                console.log("vue(".concat(vueProp, ") => ng(").concat(ngProp, ") ="), value);
+                scope.$apply(function () {
+                  return ___default['default'].set(scope, ngProp, value);
+                });
               });
             });
-          });
-        };
+          };
 
-        for (var vueProp in syncedPropertiesMapping) {
-          _loop(vueProp);
+          for (var vueProp in syncedPropertiesMapping) {
+            _loop(vueProp);
+          }
         }
-      }
-    };
+      };
 
-    function loadExposedProperties(attrs) {
-      var _attrs$vueExpose;
+      function loadExposedProperties(attrs) {
+        var _attrs$vueExpose;
 
-      var vDirectives = /^(?:v-model|v-html|v-text|v-show|v-class|v-attr|v-style|v-if)(?:\.[a-z0-9]+)*$/i;
-      var vBind = /^(?:v-bind)?:[a-z\-]+(\.[a-z]+)*$/i;
-      var vBindValue = /^[a-z\$_][a-z0-9\$_]*(\.[a-z\$_][a-z0-9\$_]*)*$/i;
-      var properties = ((_attrs$vueExpose = attrs.vueExpose) !== null && _attrs$vueExpose !== void 0 ? _attrs$vueExpose : "").split(',').map(function (o) {
-        return o.trim();
-      }).filter(function (o) {
-        return vBindValue.test(o);
-      }); // autodetect simple binding on props detect 
+        var vDirectives = /^(?:v-model|v-html|v-text|v-show|v-class|v-attr|v-style|v-if)(?:\.[a-z0-9]+)*$/i;
+        var vBind = /^(?:v-bind)?:[a-z\-]+(\.[a-z]+)*$/i;
+        var vBindValue = /^[a-z\$_][a-z0-9\$_]*(\.[a-z\$_][a-z0-9\$_]*)*$/i;
+        var properties = ((_attrs$vueExpose = attrs.vueExpose) !== null && _attrs$vueExpose !== void 0 ? _attrs$vueExpose : "").split(',').map(function (o) {
+          return o.trim();
+        }).filter(function (o) {
+          return vBindValue.test(o);
+        }); // autodetect simple binding on props detect 
 
-      var attributes = remapAttributes(attrs);
+        var attributes = remapAttributes(attrs);
 
-      for (var name in attributes) {
-        var value = attributes[name];
-        var validName = vBind.test(name) || vDirectives.test(name);
+        for (var name in attributes) {
+          var value = attributes[name];
+          var validName = vBind.test(name) || vDirectives.test(name);
 
-        if (validName && vBindValue.test(value)) {
-          properties.push(value);
-        }
-      } // Add parent properties
+          if (validName && vBindValue.test(value)) {
+            properties.push(value);
+          }
+        } // Add parent properties
 
 
-      var i = properties.length;
-
-      while (i--) {
-        var path = parentPath(properties[i]);
-
-        while (path) {
-          properties.push(path);
-          path = parentPath(path);
-        }
+        properties.forEach(function (prop) {
+          properties = ___default['default'].union(properties, paths.parents(prop));
+        });
+        return ___default['default'](properties).uniq().sort();
       }
 
-      return ___default['default'].uniq(properties);
-    }
+      function loadSyncedPropertiesMapping(attrs) {
+        // autodetect simple binding on props detect 
+        var vModel = /^(?:v-model)$/i;
+        var vBind = /^(?:v-bind)?:([a-z\-]+)\.sync*$/i;
+        var vBindValue = /^[a-z\$_][a-z0-9\$_]*(\.[a-z\$_][a-z0-9\$_]*)*$/i;
+        var mapping = {};
+        var attributes = remapAttributes(attrs);
 
-    function loadSyncedPropertiesMapping(attrs) {
-      // autodetect simple binding on props detect 
-      var vModel = /^(?:v-model)$/i;
-      var vBind = /^(?:v-bind)?:([a-z\-]+)\.sync*$/i;
-      var vBindValue = /^[a-z\$_][a-z0-9\$_]*(\.[a-z\$_][a-z0-9\$_]*)*$/i;
-      var mapping = {};
-      var attributes = remapAttributes(attrs);
+        for (var name in attributes) {
+          var value = attributes[name];
 
-      for (var name in attributes) {
-        var value = attributes[name];
+          if (vModel.test(name)) {
+            var vueProp = 'value';
+            if (!vBindValue.test(value)) throw Error("Unsupported v-model binding value: ".concat(value));
+            mapping[vueProp] = value;
+          }
 
-        if (vModel.test(name)) {
-          var vueProp = 'value';
-          if (!vBindValue.test(value)) throw Error("Unsupported v-model binding value: ".concat(value));
-          mapping[vueProp] = value;
+          if (vBind.test(name)) {
+            var _vueProp = name.replace(vBind, "$1") // Keep only property name
+            .replace(/-[a-z]/g, function (m) {
+              return m[1].toUpperCase();
+            }).replace(/^[A-Z]/, function (m) {
+              return m[1].toLowerCase();
+            }); // convert to camel-case
+
+
+            if (!vBindValue.test(value)) throw Error("Unsupported v-bind:".concat(_vueProp, ".sync binding value: ").concat(value));
+            mapping[_vueProp] = value;
+          }
         }
 
-        if (vBind.test(name)) {
-          var _vueProp = name.replace(vBind, "$1") // Keep only property name
-          .replace(/-[a-z]/g, function (m) {
-            return m[1].toUpperCase();
-          }).replace(/^[A-Z]/, function (m) {
-            return m[1].toLowerCase();
-          }); // convert to camel-case
+        return mapping;
+      }
 
+      function loadExposedDelegates(attrs) {
+        var _attrs$vueExpose2;
 
-          if (!vBindValue.test(value)) throw Error("Unsupported v-bind:".concat(_vueProp, ".sync binding value: ").concat(value));
-          mapping[_vueProp] = value;
+        var ngVueDeclaredRe = /^&([a-z\$_][a-z0-9\$_]*)$/i;
+        var ngDelegates = ((_attrs$vueExpose2 = attrs.vueExpose) !== null && _attrs$vueExpose2 !== void 0 ? _attrs$vueExpose2 : "").split(',').map(function (o) {
+          return o.trim();
+        }).filter(function (o) {
+          return ngVueDeclaredRe.test(o);
+        }).map(function (o) {
+          return o.replace(ngVueDeclaredRe, "$1");
+        }); // autodetect simple delegate call with empty ()
+        // eg: call_function()
+
+        var vOnRe = /^(?:v-on:|@)[a-z\-]+(\:[a-z0-9-]+)?(\.[a-z0-9-]+)*/i;
+        var vOnDelegateRe = /^([a-z_$][a-z0-9_$]*)(?:\(\))?$/i;
+
+        for (var key in attrs.$attr) {
+          var name = attrs.$attr[key];
+          var value = attrs[key];
+          var validName = vOnRe.test(name);
+
+          if (validName && vOnDelegateRe.test(value)) {
+            ngDelegates.push(value.replace(vOnDelegateRe, "$1"));
+          }
+        }
+
+        return ngDelegates;
+      }
+
+      function remapAttributes(attrs) {
+        var attributes = {};
+
+        for (var key in attrs.$attr) {
+          var name = attrs.$attr[key];
+          var value = attrs[key];
+          attributes[name] = value;
+        }
+
+        return attributes;
+      }
+
+      function testDefined(scope, expression) {
+        if (scope.$eval(expression) === undefined) {
+          throw Error("\"".concat(expression, "\" is not defined on parent scope"));
         }
       }
+    }]);
+  }
 
-      return mapping;
-    }
-
-    function loadExposedDelegates(attrs) {
-      var _attrs$vueExpose2;
-
-      var ngVueDeclaredRe = /^&([a-z\$_][a-z0-9\$_]*)$/i;
-      var ngDelegates = ((_attrs$vueExpose2 = attrs.vueExpose) !== null && _attrs$vueExpose2 !== void 0 ? _attrs$vueExpose2 : "").split(',').map(function (o) {
-        return o.trim();
-      }).filter(function (o) {
-        return ngVueDeclaredRe.test(o);
-      }).map(function (o) {
-        return o.replace(ngVueDeclaredRe, "$1");
-      }); // autodetect simple delegate call with empty ()
-      // eg: call_function()
-
-      var vOnRe = /^(?:v-on:|@)[a-z\-]+(\:[a-z0-9-]+)?(\.[a-z0-9-]+)*/i;
-      var vOnDelegateRe = /^([a-z_$][a-z0-9_$]*)(?:\(\))?$/i;
-
-      for (var key in attrs.$attr) {
-        var name = attrs.$attr[key];
-        var value = attrs[key];
-        var validName = vOnRe.test(name);
-
-        if (validName && vOnDelegateRe.test(value)) {
-          ngDelegates.push(value.replace(vOnDelegateRe, "$1"));
-        }
-      }
-
-      return ngDelegates;
-    }
-
-    function parentPath(path) {
-      var parts = path.split('.');
-      parts.pop();
-      return parts.join('.');
-    }
-
-    function leafPath(path) {
-      var parts = path.split('.');
-      return parts.pop();
-    }
-
-    function isRootPath(path) {
-      var parts = path.split('.');
-      return parts.length == 1;
-    }
-
-    function remapAttributes(attrs) {
-      var attributes = {};
-
-      for (var key in attrs.$attr) {
-        var name = attrs.$attr[key];
-        var value = attrs[key];
-        attributes[name] = value;
-      }
-
-      return attributes;
-    }
-
-    function testDefined(scope, expression) {
-      if (scope.$eval(expression) === undefined) {
-        throw Error("\"".concat(expression, "\" is not defined on parent scope"));
-      }
-    }
-  }];
-
-  angular.module("angularVue", []).directive("vue", vueDirectiveDefinition);
+  var ngModule = angular__default['default'].module("angularVue", []);
+  vueDirective.register(ngModule);
 
 })));
 //# sourceMappingURL=angular-vue.js.map

@@ -3,7 +3,9 @@ import {terser} from 'rollup-plugin-terser';
 import babel from '@rollup/plugin-babel';
 
 const globals = {
-  lodash: '_'
+  lodash: '_',
+  angular: 'angular',
+  Vue: 'Vue'
 };
 
 const outputOptions = {
