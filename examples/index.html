@@ -24,12 +24,17 @@
             <hr>
             <h1>Vuejs</h1>
             <div ng-repeat="c in contacts">
-                <full-name  vue :first-name.sync="c.firstName" :last-name="c.lastName" @alert="alert"></full-name>
+                <full-name vue :first-name.sync="c.firstName" :last-name="c.lastName" @alert="alert"></full-name>
             </div>
 
+            <div vue vue-expose="contacts,myValue">
+                    <greeting :contact="contacts[2]"></greeting>
+                    <button>{{myValue}}</button>
+            </div>
             
             <button vue vue-expose="contacts" @click="reset()" > Reset {{contacts[1].firstName}}</button>
             <em vue vue-expose="myValue" > myValue: {{myValue}}</em>
+
             <pre vue vue-expose="contacts" >{{contacts}}</pre>
 
            
@@ -51,6 +56,13 @@
                 <label>firstName:</label> <input v-model="fn"> {{fn}}<br>
                 <label>firstName:</label> <input v-model="ln"> {{ln}}<br>
                 <button @click="$emit('alert', firstName + ' ' + lastName)">Message me</button> </div>`
+        })
+
+        Vue.component("greeting", {
+            props: [
+                'contact',
+            ],
+            template: `<b> Hello {{contact.firstName}} {{contact.lastName}}!!<b>`
         })
 
         var app = angular.module("app",["angularVue"])
