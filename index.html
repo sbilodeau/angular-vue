@@ -3,21 +3,32 @@
   <head>
     <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.0/angular.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
-  </head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.20/lodash.min.js" integrity="sha512-90vH1Z83AJY9DmlWa8WkjkV79yfS2n2Oxhsi2dZbIv0nC4E6m5AbH8Nh156kkM7JePmqD6tcZsfad1ueoaovww==" crossorigin="anonymous"></script>
+    <script src="./dist/index_bundle.js"></script>
+</head>
   <body >
     <div>
         <div ng-controller="MyNgController">
             <h1>AngularJS</h1>
-            <label>firstName:</label>
-            <input type="text" ng-model="contact.firstName" placeholder="Enter a name here">
-            <br>
-            <label>lastName:</label>
-            <input type="text" ng-model="contact.lastName" placeholder="Enter a name here"><br>
-            <button ng-click="reset()">Reset from angular</button>
+            <div ng-repeat="c in contacts">
+                <label>firstName:</label>
+                <input type="text" ng-model="c.firstName" placeholder="Enter a name here">
+                <br>
+                <label>lastName:</label>
+                <input type="text" ng-model="c.lastName" placeholder="Enter a name here"><br>
+                <button ng-click="reset()">Reset from angular</button>
+            </div>
+            <label>scope value</label>
+            <input type="text" ng-model="myValue" placeholder="Enter a name here"><br>
+            <pre>{{contacts|json}}</pre>
             <hr>
             <h1>Vuejs</h1>
-            <full-name vue vue-expose="contact" :first-name.sync="contact.firstName" :last-name="contact.lastName" @alert="alert"></full-name>
-            <button vue vue-expose="contact" @click="reset()"> Reset {{contact.firstName}}</button>
+            <div ng-repeat="c in contacts">
+                <full-name  vue :first-name.sync="c.firstName" :last-name="c.lastName" @alert="alert"></full-name>
+            </div>
+            
+            <button vue vue-expose="contacts" @click="reset()" > Reset {{contacts[1].firstName}}</button>
+            <em vue vue-expose="myValue" > myValue: {{myValue}}</em> -->
 
            
             <hr>
@@ -40,193 +51,35 @@
                 <button @click="$emit('alert', firstName + ' ' + lastName)">Message me</button> </div>`
         })
 
-        var app = angular.module("app",[])
+        var app = angular.module("app",["angularVue"])
 
         app.controller('MyNgController', function($scope){
             $scope.$vueComponents = {
                 fullName : FullName
             }
 
-            $scope.contact = {
-                firstName : "Stephane",
-                lastName  : "Bilodeau"
-            }
-            $scope.firstName = "Stephane";
-            $scope.lastName  = "Bilodeau";
+            $scope.myValue = "";
+     
+            $scope.contacts = []
+
             $scope.reset = function() {
                 console.log("reset");
-                $scope.firstName = "";
-                $scope.lastName  = ""
+                $scope.contacts = [{
+                    firstName : "Stephane",
+                    lastName  : "Bilodeau"
+                },{
+                    firstName : "Blaise",
+                    lastName  : "Fonseca"
+                },{
+                    firstName : "Randy",
+                    lastName  : "Houlahan"
+                }]
             }
             $scope.alert = function(msg) {
                 alert(`Hello ${msg}`);
             }
-        });
-        
-        app.directive('vue', function() {
-            return {
-                restrict: 'A',
-                terminal: true,//any directive with lower priority will be ignored
-                priority: 1001,// 1 more than ngNonBindable => disable angialr interpolation!
-                link: function(scope, element, attrs) {
 
-                    const angularDelegates    = loadAngularDelegates   (attrs)
-                    const angularToVueMapping = loadAngularToVueMapping(attrs)
-                    const vueToAngularMapping = loadVueToAngularMapping(attrs)
-
-                    // test declarations
-
-                    for(const prop in angularToVueMapping) {
-                        if(scope[prop]===undefined) {
-                            throw Error(`property "${prop}" is not defined on parent scope`);
-                        }
-                    }
-
-                    for(const delegate of angularDelegates) {
-                        if(scope[delegate]===undefined) {
-                            throw Error(`function "${delegate}" is not defined on parent scope`);
-                        }
-                    }
-
-                    const vueData = {};
-
-                    for(const ngProp in angularToVueMapping) {
-                        const vueProp = angularToVueMapping[ngProp];
-                        vueData[vueProp] = scope[ngProp]; 
-                    }
-
-                    const vueMethods = {};
-                    
-                    angularDelegates.forEach((ngDelegate) => {
-                        vueMethods[ngDelegate] = function() { 
-                            console.log(`Calling ng delegate: ${ngDelegate}()`)
-                            scope.$apply(()=>scope[ngDelegate].apply(scope, arguments));
-                        }
-                    });
-
-                    var vm = new Vue({
-                        components : scope.$vueComponents,
-                        data: vueData,
-                        methods : vueMethods,
-                    }).$mount(element[0]);
-
-                    for(const ngProp in angularToVueMapping) {
-
-                        const vueProp = angularToVueMapping[ngProp];
-
-                        scope.$watch(ngProp, function(value) { 
-                            console.log(`ng(${ngProp}) => vue(${vueProp}) =`, value);
-                            vm[vueProp] = value; 
-                        });
-                    }
-
-                    for(const vueProp in vueToAngularMapping) {
-
-                        const ngProp = vueToAngularMapping[vueProp];
-
-                        vm.$children.forEach(c=>c.$on(`update:${vueProp}`, (value) => {
-                            console.log(`vue(${vueProp}) => ng(${ngProp}) =`, value);
-                            scope.$apply(()=>scope[ngProp] = value)
-                        }));
-                    }
-                }
-            };
-
-            function loadAngularToVueMapping(attrs) {
-
-                const ngVueDeclaredRe = /^[a-z\$_][a-z0-9\$_]*$/i;
-                const ngProperties    = (attrs.vueExpose??"").split(',').map(o=>o.trim()).filter(o=> ngVueDeclaredRe.test(o) );
-
-                // autodetect simple binding on props detect 
-
-                const vDirectivesRe = /^(?:v-model|v-html|v-text|v-show|v-class|v-attr|v-style|v-if)(?:\.[a-z0-9]+)*$/i;
-                const vBindRe       = /^(?:v-bind)?:[a-z\-]+(\.[a-z]+)*$/i;
-                const vBindValueRe  = ngVueDeclaredRe;
-
-                for(var key in attrs.$attr) {
-                    const name  = attrs.$attr[key];
-                    const value = attrs[key];
-
-                    const validName =  vBindRe      .test(name)
-                                    || vDirectivesRe.test(name);
-
-                    if(validName && vBindValueRe.test(value)) {
-                        ngProperties.push(value);
-                    }
-                }
-
-                const mapping = ngProperties.reduce((r,v) => { r[v]=v; return r }, {});
-
-                return mapping;
-            }
-
-            function loadVueToAngularMapping(attrs) {
-
-                // autodetect simple binding on props detect 
-
-                const vModel      = /^(?:v-model)$/i;
-                const vBind       = /^(?:v-bind)?:([a-z\-]+)\.sync*$/i;
-                const vBindValue  = /^[a-z\$_][a-z0-9\$_]*(\.[a-z\$_][a-z0-9\$_]*)*$/i;
-
-                const mapping = {};
-
-                for(var key in attrs.$attr) {
-                    const name  = attrs.$attr[key];
-                    const value = attrs[key];
-
-                    if(vModel.test(name)) {
-
-                        const vueProp = 'value';
-
-                        if(!vBindValue.test(value)) 
-                            throw Error(`Unsupported v-model binding value: ${value}`);
-
-                            mapping[vueProp] = value;
-                    }
-
-                    if(vBind.test(name)) {
-
-                        const vueProp = name.replace(vBind, "$1") // Keep only property name
-                                            .replace(/-[a-z]/g, (m)=>m[1].toUpperCase()).replace(/^[A-Z]/, (m)=>m[1].toLowerCase()) // convert to camel-case
-
-                        if(!vBindValue.test(value)) 
-                            throw Error(`Unsupported v-bind:${vueProp}.sync binding value: ${value}`);
-
-                            mapping[vueProp] = value;
-                    }
-                }
-
-                return mapping;
-            }            
-
-            function loadAngularDelegates(attrs) {
-
-                const ngVueDeclaredRe = /^&([a-z\$_][a-z0-9\$_]*)$/i;
-                const ngDelegates     = (attrs.vueExpose??"")
-                    .split(',')
-                    .map(o=>o.trim())
-                    .filter(o=>ngVueDeclaredRe.test(o))
-                    .map(o=>o.replace(ngVueDeclaredRe,"$1"));
-
-                // autodetect simple delegate call with empty ()
-                // eg: call_function()
-
-                const vOnRe         = /^(?:v-on:|@)[a-z\-]+(\:[a-z0-9-]+)?(\.[a-z0-9-]+)*/i;
-                const vOnDelegateRe = /^([a-z_$][a-z0-9_$]*)(?:\(\))?$/i;
-
-                for(var key in attrs.$attr) {
-                    const name  = attrs.$attr[key];
-                    const value = attrs[key];
-
-                    const validName = vOnRe.test(name)
-
-                    if(validName && vOnDelegateRe.test(value)) {
-                        ngDelegates.push(value.replace(vOnDelegateRe, "$1"));
-                    }
-                }
-
-                return ngDelegates;
-            }
+            $scope.reset();
         });
 
     </script>
