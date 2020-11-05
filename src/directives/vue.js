@@ -1,6 +1,4 @@
-import _get from "lodash/get"
-import _set from "lodash/set"
-import _uniq from "lodash/uniq"
+import _ from "lodash"
 
 export default [function() {
     return {
@@ -54,7 +52,7 @@ export default [function() {
                     let prop   = vueProp;
 
                     if(!isRootPath(prop)) {
-                        target = _get(vm, parentPath(prop));
+                        target = _.get(vm, parentPath(prop));
                         prop   = leafPath(prop);
                     }
 
@@ -67,7 +65,7 @@ export default [function() {
 
                 vm.$children.forEach(c=>c.$on(`update:${vueProp}`, (value) => {
                     console.log(`vue(${vueProp}) => ng(${ngProp}) =`, value);
-                    scope.$apply(()=>_set(scope, ngProp, value));
+                    scope.$apply(()=>_.set(scope, ngProp, value));
                 }));
             }
         }
@@ -110,7 +108,7 @@ export default [function() {
             }
         }
 
-        return _uniq(properties);
+        return _.uniq(properties);
     }
 
     function loadSyncedPropertiesMapping(attrs) {
